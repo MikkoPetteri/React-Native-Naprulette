@@ -1,16 +1,18 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, SafeAreaView, PermissionsAndroid } from 'react-native';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import IconBtn from './components/IconBtn';
 import NumInput from './components/NumInput';
 import ImgGif from './components/ImgViewr';
 import Notifications from './components/Notifications';
+import DreamData from './components/DreamData';
 
 const napGif = require('./assets/img/napbear.gif');
 const idleGif = require('./assets/img/wannaplaydog.gif');
 const wakeGif = require('./assets/img/wakecock.gif');
+const abortGif = require('./assets/img/cancel.gif');
 
 export default function App() {
 
@@ -30,23 +32,13 @@ export default function App() {
   const [inputValMinHr, setInputValMinHr] = useState(""); 
   const [inputValMinMin, setInputValMinMin] = useState(""); 
   const [inputValMaxHr, setInputValMaxHr] = useState(""); 
-  const [inputValMaxMin, setInputValMaxMin] = useState(""); 
-  const [napNapping, setNapNap] = useState(false);
-  const [napIdling, setNapIdle] = useState(true);
-  const [napWakeUp, setNapWake] = useState(false);
-
-
+  const [inputValMaxMin, setInputValMaxMin] = useState("");
+  
   const NapData = {
     minhr: inputValMinHr,
     minmin: inputValMinMin,
     maxhr: inputValMaxHr,
     maxmin: inputValMaxMin
-  };
-
-  const DreamData = {
-    idle: true,
-    nap: false,
-    wake: false
   };
 
   const lookHistory = () => {
@@ -132,24 +124,65 @@ export default function App() {
     var nowStr = new Date(now).toISOString();
     const target = now + (rndmNap*60000);
     var napTag = new Date(target).toISOString();
-    console.log(' Now %d / %s -> Target %d / %s', now, nowStr, target, napTag); 
+    console.log(' Now %d / %s -> Target %d / %s', now, nowStr, target, napTag);
 
     Notifications.schduleNotification(new Date(Date.now() + 5*1000));
 
   };
+  const abortNap = () => {
+    Notifications.setClearAndCancelAll();
+  };
+
+  var napIdling = true;
+  var napNapping = false;
+  var napWaking = false;
+  var napAborting = false;
+
+  const checkstate = () => {
+    useEffect(() => {
+
+      const napState = DreamData.getNapState();
+      console.log(napState);
+      if(napState.localeCompare('Idle')==0 || napState.localeCompare('None')==0)
+      {
+        napIdling = true;
+        napNapping = false;
+        napWaking = false;
+        napAborting = false;
+      }
+      else if(napState.localeCompare('Nap')==0){
+        napIdling = false;
+        napNapping = true;
+        napWaking = false;
+        napAborting = false;
+      }
+      else if(napState.localeCompare('Wake')==0){
+        napIdling = false;
+        napNapping = false;
+        napWaking = true;
+        napAborting = false;
+      }
+      else if(napState.localeCompare('Abort')==0){
+        napIdling = false;
+        napNapping = false;
+        napWaking = false;
+        napAborting = true;
+      }
+      else{
+        console.error('FAIL!')
+      }
+    });
+
+  };
+  checkstate();
 
   const napPlay = () => {
-    setNapNap(true);
-    setNapIdle(false);
-    setNapWake(false);
     getRandomNap();
   };
   const napCancel = () => {
-    setNapNap(false);
-    setNapIdle(false);
-    setNapWake(true);
+    abortNap();
+    setTimeout(napIdle, 5000);
   };
-
 
   return (
     <SafeAreaView style={styles.container}>
@@ -162,17 +195,21 @@ export default function App() {
           ) : 
           showNap ? (
             <View style={styles.cntContainer}>
+              
               <Text style={{ color: '#fff' }}>Lets Play Nap Rulette!</Text>
               { napNapping ? (
                   <ImgGif imgSrc={napGif}></ImgGif>
                 ) :
-                napWakeUp ? (
+                napWaking ? (
                   <View>
                   <ImgGif imgSrc={wakeGif}></ImgGif>
                   </View>
                 ) : 
                 napIdling ? (
                   <ImgGif imgSrc={idleGif}></ImgGif>
+                ) :
+                napAborting ? (
+                  <ImgGif imgSrc={abortGif}></ImgGif>
                 ) :
                 (<ImgGif imgSrc={idleGif}></ImgGif>)
               }
